@@ -1,3 +1,6 @@
+const CANVAS_WIDTH = 640;
+const CANVAS_HEIGHT= 480;
+
 class Sprite {
   constructor(param) {
     this._x = param.x || 0;
@@ -28,6 +31,12 @@ class Bullet extends Sprite {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+  }
+  isOutOfScreen() {
+    return this._x + this._radius < 0 ||
+           this._x - this._radius > CANVAS_WIDTH ||
+           this._y + this._radius < 0 ||
+           this._y - this._radius > CANVAS_HEIGHT;
   }
 }
 
@@ -63,11 +72,27 @@ class Player extends Sprite {
       this._vy = 0;
     }
   }
+  limitPosition() {
+    if (this._x < 0) {
+      this._x = 0;
+    } else if (this._x + this._width > CANVAS_WIDTH) {
+      this._x = CANVAS_WIDTH - this._width;
+    }
+    if (this._y < 0) {
+      this._y = 0;
+    } else if (this._y + this._height > CANVAS_HEIGHT) {
+      this._y = CANVAS_HEIGHT - this._height;
+    }
+  }
+  updateTime(timestamp) {
+    super.updateTime(timestamp);
+    this.limitPosition();
+  }
 }
 
 const arrowKeys = ["left", "up", "down", "right"]
 let gamePlayManager = {
-  _bullets: [],
+  _bullets: new Set(),
   init() {
 
     this._canvas = document.getElementById("main-canvas");
@@ -90,12 +115,12 @@ let gamePlayManager = {
   },
   setInitialObject() {
     let timestamp = performance.now();
-    for(let i = 0; i < 10; i++) {
-      this._bullets.push(new Bullet({
+    for(let i = 0; i < 15; i++) {
+      this._bullets.add(new Bullet({
         x: i * 40,
-        y: 20,
-        vx: Math.random() * 100 - 50,
-        vy: Math.random() * 30 + 60,
+        y: 60,
+        vx: (Math.random() * 30 + 30) * (Math.random() >= 0.5 ? 1 : -1),
+        vy: (Math.random() * 30 + 30) * (Math.random() >= 0.2 ? 1 : -1),
         width: 20,
         height: 20,
       }));
@@ -114,6 +139,10 @@ let gamePlayManager = {
     ctx.clearRect(0, 0, 640, 480);
     this._bullets.forEach(bullet => {
       bullet.updateTime(timestamp);
+      if (bullet.isOutOfScreen()) {
+        this._bullets.delete(bullet);
+        return;
+      }
       bullet.render(ctx);
     });
     this._player.updateTime(timestamp);
