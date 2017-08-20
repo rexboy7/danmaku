@@ -55,6 +55,7 @@ class Player extends Sprite {
     this._coreX = 15;
     this._coreY = 35;
     this._coreRadius = 5;
+    this._death = 0;
   }
   render(ctx) {
     ctx.fillStyle = this._invincible ? "RGBA(255, 80, 80, 0.4)" : "#F55";
@@ -123,20 +124,33 @@ class Player extends Sprite {
   get invincible() {
     return this._invincible;
   }
+  get death() {
+    return this._death;
+  }
+  set death(newDeath) {
+    this._death = newDeath;
+  }
 }
 
 const arrowKeys = ["left", "up", "down", "right"]
 let gamePlayManager = {
   _bullets: new Set(),
   init() {
-
     this._canvas = document.getElementById("main-canvas");
+    this._infoBox = document.getElementById("info");
+    this._info = {
+      frameRunned: 0,
+      frameTimestamp: performance.now()
+    };
     this.setInitialObject();
     document.addEventListener("keydown", this);
     document.addEventListener("keyup", this);
+    document.addEventListener("mousedown", this);
     this.render = this.render.bind(this);
-    window.requestAnimationFrame(this.render);
+    this.refreshInfo = this.refreshInfo.bind(this);
 
+    window.requestAnimationFrame(this.render);
+    this.refreshInfo();
   },
   handleEvent(evt) {
     switch(evt.type) {
@@ -183,11 +197,29 @@ let gamePlayManager = {
       }
       if(this._player.collidedWith(bullet) && !this._player.invincible) {
         this._player.setInvincible();
+        this._player.death++;
       }
       bullet.render(ctx);
     });
     this._player.render(ctx);
+
+    this._info.frameRunned++;
+
     window.requestAnimationFrame(this.render);
+  },
+  refreshInfo() {
+    let timestamp = performance.now();
+    let fps = this._info.frameRunned / (timestamp - this._info.frameTimestamp) * 1000;
+    fps = Math.round(fps);
+
+    this._info.frameRunned = 0;
+    this._info.frameTimestamp = timestamp;
+
+    this._infoBox.textContent =
+      `FPS: ${fps}\n
+       Death: ${this._player.death}
+       Bullets: ${this._bullets.size}`
+    setTimeout(this.refreshInfo, 500);
   }
 };
 

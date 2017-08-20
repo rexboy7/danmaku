@@ -1,6 +1,10 @@
+body {
+  background-color: white;
+}
 #main-canvas {
   border: 1px solid black;
 }
-body {
-  background-color: white;
+
+#info {
+  white-space: pre-line;
 }
