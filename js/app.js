@@ -38,16 +38,32 @@ class Bullet extends Sprite {
            this._y + this._radius < 0 ||
            this._y - this._radius > CANVAS_HEIGHT;
   }
+  getRect() {
+    return { x: this._x - this._radius,
+             y: this._y - this._radius,
+             width: this._radius * 2,
+             height: this._radius * 2};
+  }
 }
 
 class Player extends Sprite {
   constructor(param) {
+    param.width = 30;
+    param.height = 50;
     super(param);
     this._MOVESPEED = 140;
+    this._coreX = 15;
+    this._coreY = 35;
+    this._coreRadius = 5;
   }
   render(ctx) {
-    ctx.fillStyle = "#F55";
+    ctx.fillStyle = this._invincible ? "RGBA(255, 80, 80, 0.4)" : "#F55";
     ctx.fillRect(this._x, this._y, this._width, this._height);
+    ctx.beginPath();
+    ctx.arc(this._x + this._coreX, this._y + this._coreY, this._coreRadius, 0 , 2 * Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
 
   }
   startMove(direction) {
@@ -88,6 +104,25 @@ class Player extends Sprite {
     super.updateTime(timestamp);
     this.limitPosition();
   }
+  collidedWith(bullet) {
+    let bulletBox = bullet.getRect();
+    let hitBox = {x: this._x + this._coreX - this._coreRadius,
+                  y: this._y + this._coreY - this._coreRadius,
+                  width: this._coreRadius * 2,
+                  height: this._coreRadius * 2};
+    let xOverlapped = !(bulletBox.x + bulletBox.width < hitBox.x ||
+                        bulletBox.x > hitBox.x + hitBox.width);
+    let yOverlapped = !(bulletBox.y + bulletBox.height < hitBox.y ||
+                        bulletBox.y > hitBox.y + hitBox.height);
+    return xOverlapped && yOverlapped;
+  }
+  setInvincible(ms = 1500) {
+    this._invincible = true;
+    setTimeout(() => this._invincible = false, ms);
+  }
+  get invincible() {
+    return this._invincible;
+  }
 }
 
 const arrowKeys = ["left", "up", "down", "right"]
@@ -115,6 +150,14 @@ let gamePlayManager = {
   },
   setInitialObject() {
     let timestamp = performance.now();
+    this.addBullet();
+    this._player = new Player({
+      x: 345,
+      y: 320
+    });
+    setInterval(this.addBullet.bind(this), 6000);
+  },
+  addBullet() {
     for(let i = 0; i < 15; i++) {
       this._bullets.add(new Bullet({
         x: i * 40,
@@ -125,27 +168,24 @@ let gamePlayManager = {
         height: 20,
       }));
     }
-    this._player = new Player({
-      x: 345,
-      y: 320,
-      width: 30,
-      height: 50,
-    });
   },
   render(timestamp) {
     let ctx = this._canvas.getContext("2d");
     ctx.fillStyle = '#888';
     ctx.strokeStyle = 'rgba(0,153,255)';
     ctx.clearRect(0, 0, 640, 480);
+    this._player.updateTime(timestamp);
     this._bullets.forEach(bullet => {
       bullet.updateTime(timestamp);
       if (bullet.isOutOfScreen()) {
         this._bullets.delete(bullet);
         return;
       }
+      if(this._player.collidedWith(bullet) && !this._player.invincible) {
+        this._player.setInvincible();
+      }
       bullet.render(ctx);
     });
-    this._player.updateTime(timestamp);
     this._player.render(ctx);
     window.requestAnimationFrame(this.render);
   }
