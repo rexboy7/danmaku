@@ -132,20 +132,24 @@ class Player extends Sprite {
   }
 }
 
-const arrowKeys = ["left", "up", "down", "right"]
 let gamePlayManager = {
   _bullets: new Set(),
   init() {
     this._canvas = document.getElementById("main-canvas");
     this._infoBox = document.getElementById("info");
+    this._controllerBox = document.getElementById("controller-box");
     this._info = {
       frameRunned: 0,
       frameTimestamp: performance.now()
     };
+
     this.setInitialObject();
     document.addEventListener("keydown", this);
     document.addEventListener("keyup", this);
-    document.addEventListener("mousedown", this);
+    this._controllerBox.addEventListener("mousedown", this);
+    this._controllerBox.addEventListener("mouseup", this);
+    this._controllerBox.addEventListener("touchstart", this);
+    this._controllerBox.addEventListener("touchend", this);
     this.render = this.render.bind(this);
     this.refreshInfo = this.refreshInfo.bind(this);
 
@@ -159,6 +163,14 @@ let gamePlayManager = {
       break;
     case "keyup":
       this._player.stopMove(evt.key);
+      break;
+    case "mousedown":
+    case "touchstart":
+      this._player.startMove(evt.target.value);
+      break;
+    case "mouseup":
+    case "touchend":
+      this._player.stopMove(evt.target.value);
       break;
     }
   },

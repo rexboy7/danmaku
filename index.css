@@ -1,10 +1,33 @@
 body {
   background-color: white;
 }
+article.root {
+  margin-left: calc(50% - 320px);
+  width: 640px;
+}
+
 #main-canvas {
   border: 1px solid black;
 }
 
 #info {
   white-space: pre-line;
+  text-align: right;
+  float: right;
 }
+
+#controller-box {
+  position: absolute;
+  bottom: 0;
+  min-width: 300px;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+}
+
+#controller-box button {
+  width: 100px;
+  height: 100px;
+  display: inline-flex;
+}
+
