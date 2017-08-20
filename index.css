@@ -19,7 +19,7 @@ article.root {
 #controller-box {
   position: absolute;
   bottom: 0;
-  min-width: 300px;
+  min-width: 400px;
   min-height: 300px;
   display: flex;
   align-items: center;

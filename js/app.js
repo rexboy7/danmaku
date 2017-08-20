@@ -9,13 +9,19 @@ class Sprite {
     this._vy = param.vy || 0;
     this._width = param.width;
     this._height = param.height;
-    this._time = performance.now();
+    this._time = param.timestamp || performance.now();
   }
   updateTime(timestamp) {
     let timeDelta = timestamp - this._time;
     this._x += timeDelta * this._vx / 1000;
     this._y += timeDelta * this._vy / 1000;
     this._time = timestamp;
+  }
+  getRect() {
+    return { x: this._x,
+             y: this._y,
+             width: this._width,
+             height: this._height};
   }
 }
 
@@ -44,6 +50,10 @@ class Bullet extends Sprite {
              width: this._radius * 2,
              height: this._radius * 2};
   }
+  moveTo(x, y) {
+    this._x = x;
+    this._y = y;
+  }
 }
 
 class Player extends Sprite {
@@ -56,6 +66,34 @@ class Player extends Sprite {
     this._coreY = 35;
     this._coreRadius = 5;
     this._death = 0;
+    this._bulletSource = new BulletSource({
+      patterns: [{
+        vx: 0,
+        vy: -800,
+        offsetX: -15,
+        offsetY: 0,
+        duration: 41.66,
+        delay: 0
+      },
+      {
+        vx: 0,
+        vy: -800,
+        offsetX: 0,
+        offsetY: 0,
+        duration: 41.66,
+        delay: 0
+      },
+      {
+        vx: 0,
+        vy: -800,
+        offsetX: 15,
+        offsetY: 0,
+        duration: 41.66,
+        delay: 0
+      }
+    ],
+    anchor: this
+    });
   }
   render(ctx) {
     ctx.fillStyle = this._invincible ? "RGBA(255, 80, 80, 0.4)" : "#F55";
@@ -65,7 +103,7 @@ class Player extends Sprite {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-
+    this._bulletSource.render(ctx);
   }
   startMove(direction) {
     if (direction === "ArrowLeft") {
@@ -103,6 +141,7 @@ class Player extends Sprite {
   }
   updateTime(timestamp) {
     super.updateTime(timestamp);
+    this._bulletSource.updateTime(timestamp);
     this.limitPosition();
   }
   collidedWith(bullet) {
@@ -121,6 +160,12 @@ class Player extends Sprite {
     this._invincible = true;
     setTimeout(() => this._invincible = false, ms);
   }
+  startFire() {
+    this._bulletSource.turnOn();
+  }
+  stopFire() {
+    this._bulletSource.turnOff();
+  }
   get invincible() {
     return this._invincible;
   }
@@ -129,6 +174,61 @@ class Player extends Sprite {
   }
   set death(newDeath) {
     this._death = newDeath;
+  }
+
+}
+
+class BulletSource {
+  constructor(param) {
+    this._patterns = param.patterns;
+    this._bullets = new Set();
+    this._enabled = false;
+    this._anchor = param.anchor;
+  }
+  turnOn() {
+    if(this._enabled) {
+      return;
+    }
+    this._enabled = true;
+    this._turnedOnTime = this._time = performance.now();
+  }
+  turnOff() {
+    this._enabled = false;
+  }
+  updateTime(timestamp) {
+    this._bullets.forEach(bullet => bullet.updateTime(timestamp));
+    if (!this._enabled) {
+      return;
+    }
+    let passedTime = this._turnedOnTime - timestamp;
+    let oldPassedTime = this._turnedOnTime - this._time;
+    for (let pattern of this._patterns) {
+      let shouldShoot = Math.floor((passedTime - pattern.delay) / pattern.duration) !==
+                        Math.floor((oldPassedTime - pattern.delay) / pattern.duration);
+      if (shouldShoot) {
+        let anchorRect = this._anchor.getRect();
+        let [sourceX , sourceY] = [anchorRect.x + anchorRect.width / 2, anchorRect.y + anchorRect.height / 2];
+        let bullet = new Bullet({
+          x: sourceX + pattern.offsetX,
+          y: sourceY + pattern.offsetY,
+          vx: pattern.vx,
+          vy: pattern.vy,
+          width: 10,
+          height: 20
+        });
+        this._bullets.add(bullet);
+      }
+    }
+    this._time = timestamp;
+  }
+  render(ctx) {
+    this._bullets.forEach(bullet => {
+      if (bullet.isOutOfScreen()) {
+        this._bullets.delete(bullet);
+        return;
+      }
+      bullet.render(ctx);
+    });
   }
 }
 
@@ -159,18 +259,34 @@ let gamePlayManager = {
   handleEvent(evt) {
     switch(evt.type) {
     case "keydown":
-      this._player.startMove(evt.key);
+      if(evt.key === "z" || evt.key === "Z") {
+        this._player.startFire();
+      } else {
+        this._player.startMove(evt.key);
+      }
       break;
     case "keyup":
-      this._player.stopMove(evt.key);
+      if(evt.key === "z" || evt.key === "Z") {
+        this._player.stopFire();
+      } else {
+        this._player.stopMove(evt.key);
+      }
       break;
     case "mousedown":
     case "touchstart":
-      this._player.startMove(evt.target.value);
+      if(evt.target.value === 'z') {
+        this._player.startFire();
+      } else {
+        this._player.startMove(evt.target.value);
+      }
       break;
     case "mouseup":
     case "touchend":
-      this._player.stopMove(evt.target.value);
+      if(evt.target.value === 'z') {
+        this._player.stopFire();
+      } else {
+        this._player.stopMove(evt.target.value);
+      }
       break;
     }
   },
