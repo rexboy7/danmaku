@@ -1,0 +1,7 @@
+'use strict';
+
+const CANVAS_WIDTH = 640;
+const CANVAS_HEIGHT= 480;
+
+const SLOWMOVESPEED = 140;
+const FASTMOVESPEED = 280;
