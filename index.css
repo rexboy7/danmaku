@@ -1,5 +1,6 @@
 body {
   background-color: white;
+  overflow: hidden;
 }
 article.root {
   margin-left: calc(50% - 320px);
