@@ -175,15 +175,37 @@ class Player extends Sprite {
   set death(newDeath) {
     this._death = newDeath;
   }
+}
 
+class Enemy extends Sprite {
+  constructor(param) {
+    super(param);
+    this._bulletSource = new BulletSource({
+      patterns: param.bulletPatterns,
+      enabled: true,
+      anchor: this
+    });
+  }
+  updateTime(timestamp) {
+    super.updateTime(timestamp);
+    this._bulletSource.updateTime(timestamp);
+  }
+  render(ctx) {
+    ctx.fillStyle = "rgba(80, 80, 255, 0.4)";
+    ctx.strokeStyle = 'rgba(255,0,0)';
+    ctx.fillRect(this._x, this._y, this._width, this._height);
+    ctx.fill();
+    ctx.stroke();
+    this._bulletSource.render(ctx);
+  }
 }
 
 class BulletSource {
   constructor(param) {
     this._patterns = param.patterns;
     this._bullets = new Set();
-    this._enabled = false;
     this._anchor = param.anchor;
+    param.enabled ? this.turnOn() : this.turnOff();
   }
   turnOn() {
     if(this._enabled) {
@@ -234,6 +256,7 @@ class BulletSource {
 
 let gamePlayManager = {
   _bullets: new Set(),
+  _enemies: new Set(),
   init() {
     this._canvas = document.getElementById("main-canvas");
     this._infoBox = document.getElementById("info");
@@ -250,10 +273,10 @@ let gamePlayManager = {
     this._controllerBox.addEventListener("mouseup", this);
     this._controllerBox.addEventListener("touchstart", this);
     this._controllerBox.addEventListener("touchend", this);
-    this.render = this.render.bind(this);
+    this.paintNextFrame = this.paintNextFrame.bind(this);
     this.refreshInfo = this.refreshInfo.bind(this);
 
-    window.requestAnimationFrame(this.render);
+    window.requestAnimationFrame(this.paintNextFrame);
     this.refreshInfo();
   },
   handleEvent(evt) {
@@ -300,23 +323,40 @@ let gamePlayManager = {
     setInterval(this.addBullet.bind(this), 6000);
   },
   addBullet() {
-    for(let i = 0; i < 15; i++) {
-      this._bullets.add(new Bullet({
-        x: i * 40,
-        y: 60,
-        vx: (Math.random() * 30 + 30) * (Math.random() >= 0.5 ? 1 : -1),
-        vy: (Math.random() * 30 + 30) * (Math.random() >= 0.2 ? 1 : -1),
-        width: 20,
-        height: 20,
+    for(let i = 0; i < 5; i++) {
+      this._enemies.add(new Enemy({
+        x: CANVAS_WIDTH / 7 * (i + 1),
+        y: 1,
+        vx: 0,
+        vy: 30,
+        width: 60,
+        height: 60,
+        bulletPatterns: [{
+            vx: -100,
+            vy: 100,
+            offsetX: 0,
+            offsetY: 0,
+            duration: 1000,
+            delay: 0
+          },
+          {
+            vx: 100,
+            vy: 100,
+            offsetX: 0,
+            offsetY: 0,
+            duration: 1000,
+            delay: 0
+        }]
       }));
     }
   },
-  render(timestamp) {
+  paintNextFrame(timestamp) {
     let ctx = this._canvas.getContext("2d");
     ctx.fillStyle = '#888';
     ctx.strokeStyle = 'rgba(0,153,255)';
     ctx.clearRect(0, 0, 640, 480);
     this._player.updateTime(timestamp);
+    this._enemies.forEach(enemy => enemy.updateTime(timestamp));
     this._bullets.forEach(bullet => {
       bullet.updateTime(timestamp);
       if (bullet.isOutOfScreen()) {
@@ -330,10 +370,11 @@ let gamePlayManager = {
       bullet.render(ctx);
     });
     this._player.render(ctx);
+    this._enemies.forEach(enemy => enemy.render(ctx));
 
     this._info.frameRunned++;
 
-    window.requestAnimationFrame(this.render);
+    window.requestAnimationFrame(this.paintNextFrame);
   },
   refreshInfo() {
     let timestamp = performance.now();
