@@ -31,3 +31,6 @@ article.root {
   display: inline-flex;
 }
 
+#help {
+  float: left;
+}

@@ -68,13 +68,14 @@ class Bullet extends Sprite {
     this._y = y;
   }
 }
-
+const SLOWMOVESPEED = 140;
+const FASTMOVESPEED = 280;
 class Player extends Sprite {
   constructor(param) {
     param.width = 30;
     param.height = 50;
     super(param);
-    this._MOVESPEED = 140;
+    this._movespeed = FASTMOVESPEED;
     this._coreX = 15;
     this._coreY = 35;
     this._coreRadius = 5;
@@ -122,13 +123,13 @@ class Player extends Sprite {
   }
   startMove(direction) {
     if (direction === "ArrowLeft") {
-      this._vx = -this._MOVESPEED;
+      this._vx = -this._movespeed;
     } else if (direction === "ArrowRight") {
-      this._vx = this._MOVESPEED;
+      this._vx = this._movespeed;
     } else if (direction === "ArrowUp") {
-      this._vy = -this._MOVESPEED;
+      this._vy = -this._movespeed;
     } else if (direction === "ArrowDown") {
-      this._vy = this._MOVESPEED;
+      this._vy = this._movespeed;
     }
   }
   stopMove(direction) {
@@ -174,6 +175,30 @@ class Player extends Sprite {
   }
   stopFire() {
     this._bulletSource.turnOff();
+  }
+  switchSlowMode() {
+    this._movespeed = SLOWMOVESPEED;
+    this._refreshMoveSpeed();
+  }
+  switchFastMode() {
+    this._movespeed = FASTMOVESPEED;
+    this._refreshMoveSpeed();
+  }
+  _refreshMoveSpeed() {
+    if (this._vx < 0) {
+      this._vx = -this._movespeed;
+    } else if (this._vx > 0) {
+      this._vx = this._movespeed;
+    } else {
+      this._vx = 0;
+    }
+    if (this._vy < 0) {
+      this._vy = -this._movespeed;
+    } else if (this._vy > 0) {
+      this._vy = this._movespeed;
+    } else {
+      this._vy = 0;
+    }
   }
   get invincible() {
     return this._invincible;
@@ -310,6 +335,8 @@ let gamePlayManager = {
     case "keydown":
       if(evt.key === "z" || evt.key === "Z") {
         this._player.startFire();
+      } else if (evt.key === "Shift") {
+        this._player.switchSlowMode();
       } else {
         this._player.startMove(evt.key);
       }
@@ -317,6 +344,8 @@ let gamePlayManager = {
     case "keyup":
       if(evt.key === "z" || evt.key === "Z") {
         this._player.stopFire();
+      } else if (evt.key === "Shift") {
+        this._player.switchFastMode();
       } else {
         this._player.stopMove(evt.key);
       }
