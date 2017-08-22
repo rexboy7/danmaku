@@ -8,6 +8,7 @@ article.root {
 
 #main-canvas {
   border: 1px solid black;
+  z-index: 100;
 }
 
 #info {
@@ -33,4 +34,10 @@ article.root {
 
 #help {
   float: left;
+}
+
+@media (max-height: 811px) {
+  #controller-box {
+    display: none;
+  }
 }
