@@ -23,6 +23,25 @@ class Sprite {
              width: this._width,
              height: this._height};
   }
+  getHitBox() {
+    return this.getRect();
+  }
+  collidedWith(sprite) {
+    let othersBox = sprite.getHitBox();
+    let myBox = this.getHitBox();
+    let xOverlapped = !(othersBox.x + othersBox.width < myBox.x ||
+                        othersBox.x > myBox.x + myBox.width);
+    let yOverlapped = !(othersBox.y + othersBox.height < myBox.y ||
+                        othersBox.y > myBox.y + myBox.height);
+    return xOverlapped && yOverlapped;
+  }
+  isOutOfScreen() {
+    let rect = this.getRect();
+    return rect.x + rect.width < 0 ||
+           rect.x > CANVAS_WIDTH ||
+           rect.y + rect.height < 0 ||
+           rect.y > CANVAS_HEIGHT;
+  }
 }
 
 class Bullet extends Sprite {
@@ -37,12 +56,6 @@ class Bullet extends Sprite {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-  }
-  isOutOfScreen() {
-    return this._x + this._radius < 0 ||
-           this._x - this._radius > CANVAS_WIDTH ||
-           this._y + this._radius < 0 ||
-           this._y - this._radius > CANVAS_HEIGHT;
   }
   getRect() {
     return { x: this._x - this._radius,
@@ -66,6 +79,7 @@ class Player extends Sprite {
     this._coreY = 35;
     this._coreRadius = 5;
     this._death = 0;
+    this._kills = 0;
     this._bulletSource = new BulletSource({
       patterns: [{
         vx: 0,
@@ -92,6 +106,7 @@ class Player extends Sprite {
         delay: 0
       }
     ],
+    bulletSet: param.bulletSet,
     anchor: this
     });
   }
@@ -144,17 +159,11 @@ class Player extends Sprite {
     this._bulletSource.updateTime(timestamp);
     this.limitPosition();
   }
-  collidedWith(bullet) {
-    let bulletBox = bullet.getRect();
-    let hitBox = {x: this._x + this._coreX - this._coreRadius,
-                  y: this._y + this._coreY - this._coreRadius,
-                  width: this._coreRadius * 2,
-                  height: this._coreRadius * 2};
-    let xOverlapped = !(bulletBox.x + bulletBox.width < hitBox.x ||
-                        bulletBox.x > hitBox.x + hitBox.width);
-    let yOverlapped = !(bulletBox.y + bulletBox.height < hitBox.y ||
-                        bulletBox.y > hitBox.y + hitBox.height);
-    return xOverlapped && yOverlapped;
+  getHitBox() {
+    return {x: this._x + this._coreX - this._coreRadius,
+            y: this._y + this._coreY - this._coreRadius,
+            width: this._coreRadius * 2,
+            height: this._coreRadius * 2};
   }
   setInvincible(ms = 1500) {
     this._invincible = true;
@@ -175,6 +184,12 @@ class Player extends Sprite {
   set death(newDeath) {
     this._death = newDeath;
   }
+  get kills() {
+    return this._kills;
+  }
+  set kills(value) {
+    this._kills = value;
+  }
 }
 
 class Enemy extends Sprite {
@@ -183,27 +198,45 @@ class Enemy extends Sprite {
     this._bulletSource = new BulletSource({
       patterns: param.bulletPatterns,
       enabled: true,
+      bulletSet: param.bulletSet,
       anchor: this
     });
+    this._killed = false;
+    this._vanished = false;
   }
   updateTime(timestamp) {
     super.updateTime(timestamp);
     this._bulletSource.updateTime(timestamp);
   }
   render(ctx) {
-    ctx.fillStyle = "rgba(80, 80, 255, 0.4)";
+    ctx.fillStyle = `rgba(80, 80, 255, ${this._killed ? 0.4 : 1})`;
     ctx.strokeStyle = 'rgba(255,0,0)';
     ctx.fillRect(this._x, this._y, this._width, this._height);
     ctx.fill();
     ctx.stroke();
     this._bulletSource.render(ctx);
   }
+  kill(ms = 1000) {
+    if (this._killed) {
+      return false;
+    }
+    this._killed = true;
+    this._bulletSource.turnOff();
+    setTimeout(() => this._vanished = true, ms);
+    return true;
+  }
+  get vanished() {
+    return this._vanished;
+  }
+  get killed() {
+    return this._killed;
+  }
 }
 
 class BulletSource {
   constructor(param) {
     this._patterns = param.patterns;
-    this._bullets = new Set();
+    this._bullets = param.bulletSet;
     this._anchor = param.anchor;
     param.enabled ? this.turnOn() : this.turnOff();
   }
@@ -243,19 +276,12 @@ class BulletSource {
     }
     this._time = timestamp;
   }
-  render(ctx) {
-    this._bullets.forEach(bullet => {
-      if (bullet.isOutOfScreen()) {
-        this._bullets.delete(bullet);
-        return;
-      }
-      bullet.render(ctx);
-    });
-  }
+  render() {}
 }
 
 let gamePlayManager = {
-  _bullets: new Set(),
+  _enemyBullets: new Set(),
+  _allyBullets: new Set(),
   _enemies: new Set(),
   init() {
     this._canvas = document.getElementById("main-canvas");
@@ -318,14 +344,16 @@ let gamePlayManager = {
     this.addBullet();
     this._player = new Player({
       x: 345,
-      y: 320
+      y: 320,
+      bulletSet: this._allyBullets
     });
     setInterval(this.addBullet.bind(this), 6000);
   },
   addBullet() {
-    for(let i = 0; i < 5; i++) {
+    let enemyCount = Math.random() * 8;
+    for(let i = 0; i < enemyCount; i++) {
       this._enemies.add(new Enemy({
-        x: CANVAS_WIDTH / 7 * (i + 1),
+        x: CANVAS_WIDTH / (enemyCount + 2) * (i + 1),
         y: 1,
         vx: 0,
         vy: 30,
@@ -346,7 +374,8 @@ let gamePlayManager = {
             offsetY: 0,
             duration: 1000,
             delay: 0
-        }]
+        }],
+        bulletSet: this._enemyBullets
       }));
     }
   },
@@ -356,17 +385,35 @@ let gamePlayManager = {
     ctx.strokeStyle = 'rgba(0,153,255)';
     ctx.clearRect(0, 0, 640, 480);
     this._player.updateTime(timestamp);
-    this._enemies.forEach(enemy => enemy.updateTime(timestamp));
-    this._bullets.forEach(bullet => {
+    this._enemies.forEach(enemy => {
+      enemy.updateTime(timestamp);
+      if(enemy.isOutOfScreen() || enemy.vanished) {
+        this._enemies.delete(enemy);
+      }
+    });
+    this._enemyBullets.forEach(bullet => {
       bullet.updateTime(timestamp);
       if (bullet.isOutOfScreen()) {
-        this._bullets.delete(bullet);
+        this._enemyBullets.delete(bullet);
         return;
       }
       if(this._player.collidedWith(bullet) && !this._player.invincible) {
         this._player.setInvincible();
         this._player.death++;
       }
+      bullet.render(ctx);
+    });
+    this._allyBullets.forEach(bullet => {
+      bullet.updateTime(timestamp);
+      if (bullet.isOutOfScreen()) {
+        this._allyBullets.delete(bullet);
+        return;
+      }
+      this._enemies.forEach(enemy => {
+        if (enemy.collidedWith(bullet)) {
+          this._player.kills += enemy.kill() ? 1 : 0;
+        }
+      });
       bullet.render(ctx);
     });
     this._player.render(ctx);
@@ -387,7 +434,10 @@ let gamePlayManager = {
     this._infoBox.textContent =
       `FPS: ${fps}\n
        Death: ${this._player.death}
-       Bullets: ${this._bullets.size}`
+       Kills: ${this._player.kills}
+       Enemies: ${this._enemies.size}
+       AllyBullets: ${this._allyBullets.size}
+       EnemyBullets: ${this._enemyBullets.size}`
     setTimeout(this.refreshInfo, 500);
   }
 };
